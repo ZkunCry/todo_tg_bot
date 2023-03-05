@@ -18,21 +18,28 @@ namespace TelegramBot
         CREATE,
         FINISH,
         DELETE,
-        OUT
+        OUT,
+        CREATEDATE
     }
     class Program
     {
-        public static string AllelementsList(List<string>list,List<string>statuslist)
+        public static string AllelementsList(List<string>list,List<string>statuslist,List<string>datelist)
         {
+            
             string result="";
-            for(int i =0;i<list.Count;i++)
-                result = result+ (i+1)+". " + list[i] +$"\t\tStatus: {statuslist[i]}"+ '\n';
+            for (int i = 0; i < list.Count; i++)
+            {
+                datelist.Add( DateTime.Now.ToString().Remove(DateTime.Now.ToString().Length - 3, 3));
+                result += (i + 1)+". "+ $"Дата создания:  {datelist[i]}\t\t|"+ "Задача:\t " + list[i] + $"|\t\tStatus: {statuslist[i]}" + "\n\n";
+            }
             return result;
         }
         static async Task Main(string[] args)
         {
             var list = new List<string>() { };
             var statuslist = new List<string>() { };
+            var datelist = new List<string>() { };
+            var deadlinelist = new List<string>() { };
             States state = States.NONE;
             var botClient = new TelegramBotClient("6227872855:AAFhaB6lTjq1UFu-2d5nKfSVxYowvLIxNS8");
             using CancellationTokenSource cts = new();
@@ -72,7 +79,7 @@ namespace TelegramBot
                     statuslist.Add("❌");
                     await botClient.SendTextMessageAsync(
                     chatId: update.Message.Chat.Id,
-                    text: "Задача успешно создана!"+'\n'+message.Text,
+                    text: "Задача успешно создана.\n",
                     replyMarkup: replyKeyboardMarkup,
                     cancellationToken: cancellationToken);
                     state = States.NONE;
@@ -160,7 +167,7 @@ namespace TelegramBot
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
-                            text: AllelementsList(list,statuslist),
+                            text: AllelementsList(list,statuslist, datelist),
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         }
@@ -170,7 +177,7 @@ namespace TelegramBot
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите номер задачи:\n" + AllelementsList(list,statuslist),
+                                text: "Выберите номер задачи:\n" + AllelementsList(list,statuslist,datelist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                             state = States.DELETE;
@@ -189,7 +196,7 @@ namespace TelegramBot
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите задачe:\n" + AllelementsList(list, statuslist),
+                                text: "Выберите задачу:\n" + AllelementsList(list, statuslist, datelist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                             state = States.FINISH;

@@ -16,4 +16,3 @@ C:\Users\Eugene\source\repos\TelegramBot\TelegramBot\obj\Debug\net5.0\TelegramBo
 C:\Users\Eugene\source\repos\TelegramBot\TelegramBot\obj\Debug\net5.0\ref\TelegramBot.dll
 C:\Users\Eugene\source\repos\TelegramBot\TelegramBot\obj\Debug\net5.0\TelegramBot.pdb
 C:\Users\Eugene\source\repos\TelegramBot\TelegramBot\obj\Debug\net5.0\TelegramBot.genruntimeconfig.cache
-C:\Users\Eugene\source\repos\TelegramBot\TelegramBot\obj\Debug\net5.0\TelegramBot.csproj.AssemblyReference.cache
