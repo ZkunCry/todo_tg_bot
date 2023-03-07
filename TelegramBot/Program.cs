@@ -23,14 +23,13 @@ namespace TelegramBot
     }
     class Program
     {
-        public static string AllelementsList(List<string>list,List<string>statuslist,List<string>datelist)
+        public static string AllelementsList(Todolist list)
         {
-            
+           
             string result="";
-            for (int i = 0; i < list.Count; i++)
+            for (int i = 0; i < list.List.Count; i++)
             {
-                datelist.Add( DateTime.Now.ToString().Remove(DateTime.Now.ToString().Length - 3, 3));
-                result += (i + 1)+". "+ $"Дата создания:  {datelist[i]}\t\t|"+ "Задача:\t " + list[i] + $"|\t\tStatus: {statuslist[i]}" + "\n\n";
+                result += (i + 1)+". "+ $"Дата создания:  { list.List[i].Date}\t\t|"+ "Задача:\t " + list.List[i].Task + $"|\t\tStatus: { list.List[i].Finish}" + "\n\n";
             }
             return result;
         }
@@ -39,8 +38,9 @@ namespace TelegramBot
             var list = new List<string>() { };
             var statuslist = new List<string>() { };
             var datelist = new List<string>() { };
-            var deadlinelist = new List<string>() { };
+            Todolist userlist = new();
             States state = States.NONE;
+
             var botClient = new TelegramBotClient("6227872855:AAFhaB6lTjq1UFu-2d5nKfSVxYowvLIxNS8");
             using CancellationTokenSource cts = new();
             ReceiverOptions receiverOptions = new()
@@ -75,8 +75,7 @@ namespace TelegramBot
                 var message = update.Message;
                 if (state == States.CREATE)
                 {
-                    list.Add(message.Text);
-                    statuslist.Add("❌");
+                    userlist.Add(new Tasks(message.Text));
                     await botClient.SendTextMessageAsync(
                     chatId: update.Message.Chat.Id,
                     text: "Задача успешно создана.\n",
@@ -89,7 +88,7 @@ namespace TelegramBot
                     bool parse = int.TryParse(update.Message.Text,out int result );
                     if(parse)
                     {
-                        if(result > list.Count || result<=0)
+                        if(result > userlist.List.Count || result<=0)
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
                             text: "Задачи с таким номером не существует!\n",
@@ -97,9 +96,7 @@ namespace TelegramBot
                             cancellationToken: cancellationToken);
                         else
                         {
-                            result--;
-                            list.RemoveAt(result);
-                            statuslist.RemoveAt(result);
+                            userlist.Delete(result);
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
                             text: "Задача успешно удалена!",
@@ -114,7 +111,7 @@ namespace TelegramBot
                     bool parse = int.TryParse(update.Message.Text, out int result);
                     if(parse)
                     {
-                        if(result >list.Count || result<0)
+                        if(result > userlist.List.Count || result<0)
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
@@ -122,7 +119,7 @@ namespace TelegramBot
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         }
-                        else if(statuslist[--result] == "✅")
+                        else if(userlist.List[--result].Finish == "✅")
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
@@ -132,7 +129,7 @@ namespace TelegramBot
                         }
                         else 
                         {
-                            statuslist[result] = "✅";
+                            userlist.SetAccept(++result);
                             state = States.NONE;
                         }
                     }
@@ -157,7 +154,7 @@ namespace TelegramBot
                         state = States.CREATE;
                         break;
                     case "Out list":
-                        if (list.Count == 0)
+                        if (userlist.List.Count == 0)
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
                             text: "У вас пока нет задач!",
@@ -167,17 +164,17 @@ namespace TelegramBot
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
-                            text: AllelementsList(list,statuslist, datelist),
+                            text: AllelementsList(userlist),
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         }
                         break;
                     case "Delete task":
-                        if (list.Count > 0)
+                        if (userlist.List.Count > 0)
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите номер задачи:\n" + AllelementsList(list,statuslist,datelist),
+                                text: "Выберите номер задачи:\n" + AllelementsList(userlist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                             state = States.DELETE;
@@ -192,11 +189,11 @@ namespace TelegramBot
                         }
                         break;
                     case "Finish task ✅":
-                        if(list.Count > 0 )
+                        if(userlist.List.Count > 0 )
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите задачу:\n" + AllelementsList(list, statuslist, datelist),
+                                text: "Выберите задачу:\n" + AllelementsList(userlist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                             state = States.FINISH;
