@@ -19,28 +19,33 @@ namespace TelegramBot
         FINISH,
         DELETE,
         OUT,
-        CREATEDATE
+        CREATEDATE,
+        CREATELIST,
+        PRECREATE,
+        PREDELETE,
+        PREFINISH
     }
     class Program
     {
-        public static string AllelementsList(Todolist list)
+        public static string AllelementsList(List<Todolist> list)
         {
-           
             string result="";
-            for (int i = 0; i < list.List.Count; i++)
+            for (int i = 0; i < list.Count; i++)
             {
-                result += (i + 1)+". "+ $"Дата создания:  { list.List[i].Date}\t\t|"+ "Задача:\t " + list.List[i].Task + $"|\t\tStatus: { list.List[i].Finish}" + "\n\n";
+                result += $"Список: {list[i].NameList}\n";
+                if (list[i].List.Count == 0)
+                    continue;
+                for(int j =0;j<list[i].List.Count;j++)
+                    result += (j + 1) + ". " + $"Дата создания:  { list[i].List[j].Date}\t\t|" + "Задача:\t " + list[i].List[j].Task 
+                        + $"|\t\tStatus: { list[i].List[j].Finish}" + "\n\n";
             }
             return result;
         }
         static async Task Main(string[] args)
         {
-            var list = new List<string>() { };
-            var statuslist = new List<string>() { };
-            var datelist = new List<string>() { };
-            Todolist userlist = new();
+            List<Todolist> todouserlist = new();
+            int IndexList = 0;
             States state = States.NONE;
-
             var botClient = new TelegramBotClient("6227872855:AAFhaB6lTjq1UFu-2d5nKfSVxYowvLIxNS8");
             using CancellationTokenSource cts = new();
             ReceiverOptions receiverOptions = new()
@@ -54,15 +59,16 @@ namespace TelegramBot
                 receiverOptions: receiverOptions,
                 cancellationToken: cts.Token
             );
-
             async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
             {
-                
+                bool parse = false;
+                int result = 0;
                 ReplyKeyboardMarkup replyKeyboardMarkup = new
                 (new[]
                 {
                     new KeyboardButton[] 
-                    {   "Create task", 
+                    {   "Create list",
+                        "Create task", 
                         "Finish task ✅",
                         "Out list",
                         "Delete task"
@@ -73,9 +79,127 @@ namespace TelegramBot
                     ResizeKeyboard = true
                 };
                 var message = update.Message;
-                if (state == States.CREATE)
+                if(state == States.CREATELIST)
                 {
-                    userlist.Add(new Tasks(message.Text));
+                    todouserlist.Add(new() 
+                    { 
+                        NameList = message.Text 
+                    }
+                    );
+                    await botClient.SendTextMessageAsync(
+                    chatId: update.Message.Chat.Id,
+                    text: "Список успешно создан!\n",
+                    replyMarkup: replyKeyboardMarkup,
+                    cancellationToken: cancellationToken);
+                    state = States.NONE;
+                }
+                else if(state == States.PRECREATE)
+                {
+                    if(todouserlist.Count > 0 && todouserlist is not null)
+                    {
+                        parse = int.TryParse(update.Message.Text, out result);
+                        if (parse)
+                        {
+                            if (result > 0 && result <= todouserlist.Count)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "Введите задачу:",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.CREATE;
+                                IndexList = result;
+                            }
+                            else
+                            {
+                                await botClient.SendTextMessageAsync(
+                                 chatId: update.Message.Chat.Id,
+                                text: "Списка с таким номером не существует!",
+                                 replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                        }
+                        else 
+                        {
+                            await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Неверно введены данные!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                            state = States.NONE;
+                        }
+                    }
+                    else
+                    {
+                        await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Список не создан!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                            state = States.NONE;
+                    }
+                }
+                else if (state == States.PREDELETE)
+                {
+                    if (todouserlist.Count > 0 && todouserlist is not null)
+                    {
+                         parse = int.TryParse(update.Message.Text, out  result);
+                        int temp = result;
+                        if (parse)
+                        {
+                            if(result > todouserlist.Count)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                               text: "Списка с таким номером не существует!",
+                                replyMarkup: replyKeyboardMarkup,
+                               cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                            else if (todouserlist[--temp].List.Count == 0)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "В списке нет задач.\n",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                           else if (result > 0 && result <= todouserlist.Count)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "Введите номер задачи:",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.DELETE;
+                                IndexList = result;
+                            }
+                        }
+                        else
+                        {
+                            await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Неверно введены данные!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                            state = States.NONE;
+                        }
+                    }
+                    else
+                    {
+                        await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Список не создан!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                        state = States.NONE;
+                    }
+                }
+                else if (state == States.CREATE)
+                {
+                    todouserlist[--IndexList].Add(new Tasks(message.Text));
                     await botClient.SendTextMessageAsync(
                     chatId: update.Message.Chat.Id,
                     text: "Задача успешно создана.\n",
@@ -85,33 +209,48 @@ namespace TelegramBot
                 }
                 else if(state == States.DELETE)
                 {
-                    bool parse = int.TryParse(update.Message.Text,out int result );
+                    parse = int.TryParse(update.Message.Text,out result );
+                    int temp = IndexList;
                     if(parse)
                     {
-                        if(result > userlist.List.Count || result<=0)
+                         if (result > todouserlist[--IndexList].List.Count || result <= 0)
+                        {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
                             text: "Задачи с таким номером не существует!\n",
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
+                         
+                        }
                         else
                         {
-                            userlist.Delete(result);
+                            todouserlist[IndexList].Delete(result);
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
                             text: "Задача успешно удалена!",
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
-                            state = States.NONE;
+                     
                         }
                     }
+                    else 
+                    {
+                        await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Неверно введены данные\n",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                    }
+                    state = States.NONE;
                 }
                 else if(state == States.FINISH)
                 {
-                    bool parse = int.TryParse(update.Message.Text, out int result);
-                    if(parse)
+                    parse = int.TryParse(update.Message.Text, out  result);
+                    int temp = IndexList;
+                    temp--;
+                    if (parse)
                     {
-                        if(result > userlist.List.Count || result<0)
+                        if(result > todouserlist[temp].List.Count  || result<0)
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
@@ -119,7 +258,7 @@ namespace TelegramBot
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         }
-                        else if(userlist.List[--result].Finish == "✅")
+                        else if(todouserlist[temp].List[--result].Finish == "✅")
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
@@ -128,10 +267,7 @@ namespace TelegramBot
                             cancellationToken: cancellationToken);
                         }
                         else 
-                        {
-                            userlist.SetAccept(++result);
-                            state = States.NONE;
-                        }
+                            todouserlist[temp].SetAccept(++result);
                     }
                     else
                     {
@@ -140,79 +276,165 @@ namespace TelegramBot
                             text: "Некорректный ввод!\n",
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
+                    }
+                    state = States.NONE;
+                }
+                else if (state == States.PREFINISH)
+                {
+                    if (todouserlist.Count > 0 && todouserlist is not null)
+                    {
+                        parse = int.TryParse(update.Message.Text, out  result);
+                        int temp = result;
+                        if (parse)
+                        {
+                            if (result > todouserlist.Count)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                               text: "Списка с таким номером не существует!",
+                                replyMarkup: replyKeyboardMarkup,
+                               cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                           else  if (todouserlist[--temp].List.Count == 0)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "В списке нет задач.\n",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                            else if (result > 0 && result <= todouserlist.Count)
+                            {
+                                await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "Введите номер задачи:",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.FINISH;
+                                IndexList = result;
+                            }
+                            else
+                            {
+                                await botClient.SendTextMessageAsync(
+                                 chatId: update.Message.Chat.Id,
+                                text: "Списка с таким номером не существует!",
+                                 replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
+                                state = States.NONE;
+                            }
+                        }
+                        else
+                        {
+                            await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Неверно введены данные!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                            state = States.NONE;
+                        }
+                    }
+                    else
+                    {
+                        await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Список не создан!",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
                         state = States.NONE;
                     }
                 }
                 switch (message.Text) 
                 {
-                    case "Create task":
+                    case "Create list":
                         await botClient.SendTextMessageAsync(
-                        chatId: update.Message.Chat.Id,
-                        text: "Введите задачу:",
-                        replyMarkup: replyKeyboardMarkup,
-                        cancellationToken: cancellationToken);
-                        state = States.CREATE;
+                            chatId: update.Message.Chat.Id,
+                            text: "Введите название вашего списка:",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                        state = States.CREATELIST;
                         break;
-                    case "Out list":
-                        if (userlist.List.Count == 0)
+                    case "Create task":
+                        if (todouserlist.Count > 0)
+                        {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
-                            text: "У вас пока нет задач!",
+                            text: "Введите номер списка:",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                            state = States.PRECREATE;
+                        }
+                        else
+                        {
+                            await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Для начала нужно создать список.",
+                            replyMarkup: replyKeyboardMarkup,
+                            cancellationToken: cancellationToken);
+                        }
+                        break;
+                    case "Out list":
+                        if (todouserlist.Count == 0)
+                            await botClient.SendTextMessageAsync(
+                            chatId: update.Message.Chat.Id,
+                            text: "Вы не создали ни одного списка!",
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         else
                         {
                             await botClient.SendTextMessageAsync(
                             chatId: update.Message.Chat.Id,
-                            text: AllelementsList(userlist),
+                            text: AllelementsList(todouserlist),
                             replyMarkup: replyKeyboardMarkup,
                             cancellationToken: cancellationToken);
                         }
                         break;
                     case "Delete task":
-                        if (userlist.List.Count > 0)
+                        if (todouserlist.Count  > 0)
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите номер задачи:\n" + AllelementsList(userlist),
+                                text: "Выберите список:\n" + AllelementsList(todouserlist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
-                            state = States.DELETE;
+                            state = States.PREDELETE;
                         }
                         else
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "У вас нет ни одной задачи!",
+                                text: "Для начала нужно создать список.",
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                         }
                         break;
                     case "Finish task ✅":
-                        if(userlist.List.Count > 0 )
+                        if(todouserlist.Count   > 0 )
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "Выберите задачу:\n" + AllelementsList(userlist),
+                                text: "Выберите список:\n" + AllelementsList(todouserlist),
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
-                            state = States.FINISH;
+                            state = States.PREFINISH;
                         }
                         else 
                         {
                             await botClient.SendTextMessageAsync(
                                 chatId: update.Message.Chat.Id,
-                                text: "У вас нет ни одной задачи!",
+                                text: "Для начала нужно создать список.",
                                 replyMarkup: replyKeyboardMarkup,
                                 cancellationToken: cancellationToken);
                         }
                         break;
                     default:
-                        await botClient.SendTextMessageAsync(
-                            chatId: update.Message.Chat.Id,
-                            text: "Выберите что хотите сделать:",
-                            replyMarkup: replyKeyboardMarkup,
-                            cancellationToken: cancellationToken);
+                        if(state == States.NONE)
+                            await botClient.SendTextMessageAsync(
+                                chatId: update.Message.Chat.Id,
+                                text: "Выберите что хотите сделать:",
+                                replyMarkup: replyKeyboardMarkup,
+                                cancellationToken: cancellationToken);
                         break;
                 }
             }

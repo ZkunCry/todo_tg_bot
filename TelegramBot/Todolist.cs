@@ -19,14 +19,15 @@ namespace TelegramBot
 
         private List<Itask> todolists;
 
+        public string NameList { get; set; }
         private int count;
         public int Count { get => count; }
         public List<Itask> List { get => todolists; }
-
         public Todolist() : base()
         {
             todolists = new();
             count = 0;
+            NameList = null;
         }
         public Todolist(in Tasks newtask)
         {
